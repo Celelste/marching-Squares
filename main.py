@@ -134,8 +134,8 @@ def draw_fill(x1, y1, x2, y2, v, top, right, bottom, left):
         pg.draw.polygon(screen, (0, v, 0), (top_left, top_right, bottom_right, bottom, left)) #bottom left out
     elif index == 15:
         pg.draw.rect(screen, (0, v, 0), (x1, y1, x2 - x1, y2 - y1))
-#main loop
-while running:
+
+while running: #main loop
     
     for event in pg.event.get(): #check keyboard inputs and if the window was closed, if it was closed then end the main loop
         if event.type==pg.QUIT:
