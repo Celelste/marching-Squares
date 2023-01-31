@@ -20,11 +20,11 @@ SCREENWIDTH=1920
 SCREENHEIGHT=1080
 #system variables
 accuracy = 32 #the density of points, think of as 1/accuracy
-frame_skip = 1 #how many frames it waits before drawing (1 is every frame)
 target_fps = 60 #the ideal fps
-threshold = 0 #threshold for drawing lines
-z_increment = 0.002 #how much it changes per frame
+threshold = 0 #threshold for drawing lines !!!DO NOT CHANGE FROM 0 IF INTERPOLATION IS ON!!!
+z_increment = 1 #how much it changes per frame
 fill = True #wether or not to fill in the lines
+interpolate = True #wether or not to interpolate the lines
 
 #initialize the screen
 size = (SCREENWIDTH, SCREENHEIGHT)
@@ -47,8 +47,11 @@ x_points = np.linspace(0, SCREENWIDTH, int(SCREENWIDTH/accuracy))
 y_points = np.linspace(0, SCREENHEIGHT, int(SCREENHEIGHT/accuracy))
 noise = OpenSimplex(random.randint(0, 100000))
 empty = np.zeros((int(SCREENWIDTH/accuracy), int(SCREENHEIGHT/accuracy)))
+points = empty
 
-def draw_wire(v, top, right, bottom, left):
+last_time = time.time()
+
+def draw_wire(v, top, right, bottom, left, index):
     
     '''
     take the index of the configuration and render the corresponding lines
@@ -89,7 +92,7 @@ def draw_wire(v, top, right, bottom, left):
     elif index == 15:
         pass #fill):
 
-def draw_fill(x1, y1, x2, y2, v, top, right, bottom, left):
+def draw_fill(x1, y1, x2, y2, v, top, right, bottom, left, index):
     
     top_left = (x1, y1)
     top_right = (x2, y1)
@@ -136,7 +139,6 @@ def draw_fill(x1, y1, x2, y2, v, top, right, bottom, left):
         pg.draw.rect(screen, (0, v, 0), (x1, y1, x2 - x1, y2 - y1))
 
 while running: #main loop
-    
     for event in pg.event.get(): #check keyboard inputs and if the window was closed, if it was closed then end the main loop
         if event.type==pg.QUIT:
             running=False
@@ -145,70 +147,79 @@ while running: #main loop
                 running=False
             if event.key==pg.K_SPACE:
                 drawing *= -1
+            if event.key==pg.K_f:
+                fill = not fill
+            if event.key==pg.K_i:
+                interpolate = not interpolate
     
-    if frame_count % frame_skip == 0: #if we want to render this frame, incriment z and render apropriately.
-        screen.fill(BLACK)
-        if drawing == -1:
-            z += z_increment * frame_skip
-            current_z = z
-            points = empty
-            for y in range(len(y_points)):
-                for x in range(len(x_points)):
-                    xs = x_points[x]
-                    ys = y_points[y]
-                    n = noise.noise3(xs / 100, ys / 100, z)
-                    #v = int((points[x][y] + 1) * 128)
-                    points[int(x)][int(y)] = n
-                    if fill == False:
-                        pg.draw.circle(screen, (0, int((n + 1) * 128), 0), (int(x_points[x]), int(y_points[y])), 1)
-        
-        if drawing == 1:
-            pass
-        
-        for x in range(len(x_points) - 1): 
-            for y in range(len(y_points) - 1):
+    #framerate management
+    dt = time.time() - last_time
+    dt *= target_fps
+    last_time = time.time()
+
+    screen.fill(BLACK)
+    if drawing == -1:
+        z += z_increment * dt
+        points = empty
+        for y in range(len(y_points)):
+            for x in range(len(x_points)):
+                xs = x_points[x]
+                ys = y_points[y]
                 
-                index = 0
-                
-                x1 = int(x_points[x])
-                y1 = int(y_points[y])
-                
-                x2 = int(x_points[x + 1])
-                y2 = int(y_points[y + 1])
-                
+                n = noise.noise3(xs / 100, ys / 100, z / 1000)
+                #v = int((points[x][y] + 1) * 128)
+                points[int(x)][int(y)] = n
+                if fill == False:
+                    pg.draw.circle(screen, (0, int((n + 1) * 128), 0), (int(x_points[x]), int(y_points[y])), accuracy/8)
+    if drawing == 1:
+        pass
+    
+    for x in range(len(x_points) - 1): 
+        for y in range(len(y_points) - 1):
+            index = 0
+            x1 = int(x_points[x])
+            y1 = int(y_points[y])
+            x2 = int(x_points[x + 1])
+            y2 = int(y_points[y + 1])
+            if interpolate == True:
+                v1 = (points[x][y])
+                v2 = (points[x + 1][y])
+                v3 = (points[x][y + 1])
+                v4 = (points[x + 1][y + 1])
+                right = (x2, ((((0-v2)/(v4-v2))*(y2-y1)) + y1))
+                bottom = (((((0-v3)/(v4-v3))*(x2-x1)) + x1), y2)
+                left = (x1, ((((0-v1)/(v3-v1))*(y2-y1)) + y1))
+                top = (((((0-v1)/(v2-v1))*(x2-x1)) + x1), y1)
+            else:
                 x_center = x1 + (x2 - x1)/2
                 y_center = y1 + (y2 - y1)/2
-                
                 right = (x2, y_center)
                 bottom = (x_center, y2)
                 left = (x1, y_center)
                 top = (x_center, y1)
-                                
-                half_value = accuracy/ 2
+            v = int((((points[x][y] + points[x + 1][y] + points[x][y + 1] + points[x + 1][y + 1])/4)+ 1) * 128)
+            if points[x][y] > threshold:
+                index += 8
+            if points[x + 1][y] > threshold:
+                index += 4
+            if points[x][y + 1] > threshold:
+                index += 1
+            if points[x + 1][y + 1] > threshold:
+                index += 2
+            
+            if fill == False:
+                draw_wire(v, top, right, bottom, left, index)
+            else:
+                draw_fill(x1, y1, x2, y2, v, top, right, bottom, left, index)
 
-                v = int((((points[x][y] + points[x + 1][y] + points[x][y + 1] + points[x + 1][y + 1])/4)+ 1) * 128)
-                
-                if points[x][y] > threshold:
-                    index += 8
-                if points[x + 1][y] > threshold:
-                    index += 4
-                if points[x][y + 1] > threshold:
-                    index += 1
-                if points[x + 1][y + 1] > threshold:
-                    index += 2
-                
-                if fill == False:
-                    draw_wire(x1, y1, v, top, right, bottom, left)
-                else:
-                    draw_fill(x1, y1, x2, y2, v, top, right, bottom, left)
-    
     pg.display.flip() #update the screen
-    
+
     frame_count += 1 #measure fps
     if frame_count % 10 == 0:
         end_time = time.time()
         fps = frame_count / (end_time - start_time)
         print("FPS: ", round(fps, 3))
-
+    
     clock.tick(target_fps) #ensure fps limit
+
 quit()
