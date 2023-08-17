@@ -18,16 +18,19 @@ BLUE = (0, 0, 255)
 
 SCREENWIDTH=1920
 SCREENHEIGHT=1080
+
+window = pg.display.Info()
+
 #system variables
 accuracy = 32 #the density of points, think of as 1/accuracy
 target_fps = 60 #the ideal fps
 threshold = 0 #threshold for drawing lines !!!DO NOT CHANGE FROM 0 IF INTERPOLATION IS ON!!!
-z_increment = 1 #how much it changes per frame
+z_increment = 0.25 #how much it changes per frame
 fill = True #wether or not to fill in the lines
 interpolate = True #wether or not to interpolate the lines
 
 #initialize the screen
-size = (SCREENWIDTH, SCREENHEIGHT)
+size = (window.current_w, window.current_h)
 screen = pg.display.set_mode(size)
 pg.display.set_caption("Marching Squares")
 screen.fill(BLACK)
@@ -38,9 +41,8 @@ frame_count = 0
 z = 0
 drawing = -1
 
-#initialize the clock and time
+#initialize the clock
 clock = pg.time.Clock()
-start_time = time.time()
 
 #define the points, noise, and an empty array
 x_points = np.linspace(0, SCREENWIDTH, int(SCREENWIDTH/accuracy))
@@ -48,8 +50,6 @@ y_points = np.linspace(0, SCREENHEIGHT, int(SCREENHEIGHT/accuracy))
 noise = OpenSimplex(random.randint(0, 100000))
 empty = np.zeros((int(SCREENWIDTH/accuracy), int(SCREENHEIGHT/accuracy)))
 points = empty
-
-last_time = time.time()
 
 def draw_wire(v, top, right, bottom, left, index):
     
@@ -139,6 +139,9 @@ def draw_fill(x1, y1, x2, y2, v, top, right, bottom, left, index):
         pg.draw.rect(screen, (0, v, 0), (x1, y1, x2 - x1, y2 - y1))
 
 while running: #main loop
+    frame_count += 1
+    dt = clock.tick(target_fps)
+    start_time = time.time()
     for event in pg.event.get(): #check keyboard inputs and if the window was closed, if it was closed then end the main loop
         if event.type==pg.QUIT:
             running=False
@@ -152,10 +155,7 @@ while running: #main loop
             if event.key==pg.K_i:
                 interpolate = not interpolate
     
-    #framerate management
-    dt = time.time() - last_time
-    dt *= target_fps
-    last_time = time.time()
+    input_time = time.time()
 
     screen.fill(BLACK)
     if drawing == -1:
@@ -173,6 +173,8 @@ while running: #main loop
                     pg.draw.circle(screen, (0, int((n + 1) * 128), 0), (int(x_points[x]), int(y_points[y])), accuracy/8)
     if drawing == 1:
         pass
+
+    data_time = time.time()
     
     for x in range(len(x_points) - 1): 
         for y in range(len(y_points) - 1):
@@ -211,15 +213,27 @@ while running: #main loop
                 draw_wire(v, top, right, bottom, left, index)
             else:
                 draw_fill(x1, y1, x2, y2, v, top, right, bottom, left, index)
+    
+    draw_time = time.time()
 
     pg.display.flip() #update the screen
 
-    frame_count += 1 #measure fps
-    if frame_count % 10 == 0:
-        end_time = time.time()
-        fps = frame_count / (end_time - start_time)
-        print("FPS: ", round(fps, 3))
-    
-    clock.tick(target_fps) #ensure fps limit
+    end_time = time.time()
+
+    if frame_count == 10:
+
+        frame_count = 0
+
+        fps = round(clock.get_fps(), 3)
+
+        frame_time = round(end_time - start_time, 3)
+
+        input_timed = round(input_time - start_time, 3)
+
+        data_timed = round(data_time - input_time, 3)
+
+        draw_timed = round(draw_time - data_time, 3)
+
+        print(f'FPS: {fps}, Frame time: {frame_time}, Input time: {input_timed}, Data time: {data_timed}, Draw time: {draw_timed}')
 
 quit()
