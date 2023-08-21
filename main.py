@@ -2,7 +2,8 @@ import pygame as pg
 import time
 import numpy as np
 import random
-from opensimplex import OpenSimplex
+from opensimplex.internals import _noise3, _init
+from numba import njit
 
 #initialize the engine
 pg.init()
@@ -16,16 +17,16 @@ RED = (255, 0, 0)
 PURPLE = (255, 0, 255)
 BLUE = (0, 0, 255)
 
-SCREENWIDTH=1920
-SCREENHEIGHT=1080
+SCREENWIDTH=2560
+SCREENHEIGHT=1440
 
 window = pg.display.Info()
 
 #system variables
-accuracy = 32 #the density of points, think of as 1/accuracy
+accuracy = 64 #the density of points, think of as 1/accuracy
 target_fps = 60 #the ideal fps
 threshold = 0 #threshold for drawing lines !!!DO NOT CHANGE FROM 0 IF INTERPOLATION IS ON!!!
-z_increment = 0.25 #how much it changes per frame
+z_increment = 0.001 #how much it changes per frame
 fill = True #wether or not to fill in the lines
 interpolate = True #wether or not to interpolate the lines
 
@@ -47,7 +48,6 @@ clock = pg.time.Clock()
 #define the points, noise, and an empty array
 x_points = np.linspace(0, SCREENWIDTH, int(SCREENWIDTH/accuracy))
 y_points = np.linspace(0, SCREENHEIGHT, int(SCREENHEIGHT/accuracy))
-noise = OpenSimplex(random.randint(0, 100000))
 empty = np.zeros((int(SCREENWIDTH/accuracy), int(SCREENHEIGHT/accuracy)))
 points = empty
 
@@ -138,6 +138,13 @@ def draw_fill(x1, y1, x2, y2, v, top, right, bottom, left, index):
     elif index == 15:
         pg.draw.rect(screen, (0, v, 0), (x1, y1, x2 - x1, y2 - y1))
 
+perm, perm_grad_index3 = _init(seed= 16)
+
+@njit(cache=True)
+def noise3(x, y, z):
+    return _noise3(x, y, z, perm, perm_grad_index3)
+    
+
 while running: #main loop
     frame_count += 1
     dt = clock.tick(target_fps)
@@ -163,11 +170,7 @@ while running: #main loop
         points = empty
         for y in range(len(y_points)):
             for x in range(len(x_points)):
-                xs = x_points[x]
-                ys = y_points[y]
-                
-                n = noise.noise3(xs / 100, ys / 100, z / 1000)
-                #v = int((points[x][y] + 1) * 128)
+                n = noise3(x, y, z)
                 points[int(x)][int(y)] = n
                 if fill == False:
                     pg.draw.circle(screen, (0, int((n + 1) * 128), 0), (int(x_points[x]), int(y_points[y])), accuracy/8)
