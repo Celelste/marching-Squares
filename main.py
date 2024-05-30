@@ -23,7 +23,7 @@ SCREENHEIGHT=1440
 window = pg.display.Info()
 
 #system variables
-accuracy = 64 #the density of points, think of as 1/accuracy
+accuracy = 32 #the density of points, think of as 1/accuracy
 target_fps = 60 #the ideal fps
 threshold = 0 #threshold for drawing lines !!!DO NOT CHANGE FROM 0 IF INTERPOLATION IS ON!!!
 z_increment = 0.001 #how much it changes per frame
