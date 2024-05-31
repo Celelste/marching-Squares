@@ -173,7 +173,8 @@ while running: #main loop
                 n = noise3(x, y, z)
                 points[int(x)][int(y)] = n
                 if fill == False:
-                    pg.draw.circle(screen, (0, int((n + 1) * 128), 0), (int(x_points[x]), int(y_points[y])), accuracy/8)
+                    if n >= 0:
+                        pg.draw.circle(screen, (0, int((n + 1) * 128), 0), (int(x_points[x]), int(y_points[y])), accuracy/8)
     if drawing == 1:
         pass
 
